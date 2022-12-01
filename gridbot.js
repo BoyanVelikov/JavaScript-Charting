@@ -11,6 +11,11 @@ const subscribe = {"action":"subscribe","trades":["ETH/USD"],"quotes":["ETH/USD"
 const quotesElement = document.getElementById('quotes');
 const tradesElement = document.getElementById('trades');
 
+let currentBar = {};
+let trades = [];
+
+
+
 var chart = LightweightCharts.createChart(document.getElementById('chart'), {
 	width: 700,
     height: 700,
@@ -63,31 +68,12 @@ fetch(bars_url, {
             time: Date.parse(bar.t) / 1000
         }));
 
+        currentBar = data[data.length - 1];
+
         console.log(data);
         
         candleSeries.setData(data);
     });
-
-// var data = [
-// 	{ time: '2018-10-19', open: 54.62, high: 55.50, low: 54.52, close: 54.90 },
-// 	{ time: '2018-10-22', open: 55.08, high: 55.27, low: 54.61, close: 54.98 },
-// 	{ time: '2018-10-23', open: 56.09, high: 57.47, low: 56.09, close: 57.21 },
-// 	{ time: '2018-10-24', open: 57.00, high: 58.44, low: 56.41, close: 57.42 },
-// 	{ time: '2018-10-25', open: 57.46, high: 57.63, low: 56.17, close: 56.43 },
-// 	{ time: '2018-10-26', open: 56.26, high: 56.62, low: 55.19, close: 55.51 },
-// 	{ time: '2018-10-29', open: 55.81, high: 57.15, low: 55.72, close: 56.48 },
-// 	{ time: '2018-10-30', open: 56.92, high: 58.80, low: 56.92, close: 58.18 },
-// 	{ time: '2018-10-31', open: 58.32, high: 58.32, low: 56.76, close: 57.09 },
-// 	{ time: '2018-11-01', open: 56.98, high: 57.28, low: 55.55, close: 56.05 },
-// 	{ time: '2018-11-02', open: 56.34, high: 57.08, low: 55.92, close: 56.63 },
-// 	{ time: '2018-11-05', open: 56.51, high: 57.45, low: 56.51, close: 57.21 },
-// 	{ time: '2018-11-06', open: 57.02, high: 57.35, low: 56.65, close: 57.21 },
-// 	{ time: '2018-11-07', open: 57.55, high: 57.78, low: 57.03, close: 57.65 },
-// 	{ time: '2018-11-08', open: 57.70, high: 58.44, low: 57.66, close: 58.27 },
-// 	{ time: '2018-11-09', open: 58.32, high: 59.20, low: 57.94, close: 58.46 },
-// 	{ time: '2018-11-12', open: 58.84, high: 59.40, low: 58.54, close: 58.72 },
-// 	{ time: '2018-11-13', open: 59.09, high: 59.14, low: 58.32, close: 58.66 }
-// ];
 
 socket.onmessage = function (event) {
     const data = JSON.parse(event.data);
@@ -134,11 +120,44 @@ socket.onmessage = function (event) {
             if (elements.length > 10) {
                 tradesElement.removeChild(elements[0]);
             }
+
+            trades.push(data[key].p);
+            
+            var open = trades[0];
+            var high = Math.max(...trades);
+            var low = Math.min(...trades);
+            var close = trades[trades.length - 1];
+            
+            console.log(open, high, low, close);
+
+            candleSeries.update({
+                time: currentBar.time + 60,
+                open: open,
+                high: high,
+                low: low,
+                close: close
+            });
+
         }
 
-        if (type == 'b') {
+        if (type == 'b' && data[key].x == 'CBSE') {
             console.log('got a new bar');
             console.log(data[key]);
+
+            var bar = data[key];
+            var timestamp = new Date(bar.t).getTime() / 1000;
+
+            currentBar = {
+                time: timestamp,
+                open: bar.o,
+                high: bar.h,
+                low: bar.l,
+                close: bar.c
+            };
+
+            candleSeries.update(currentBar);
+
+            trades = [];
         }
     }
 };
